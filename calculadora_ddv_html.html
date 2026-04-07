@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#185FA5">
+  <title>Calculadora DDV — 4G Energía</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f4f6f9; color: #1a1a1a; min-height: 100vh; }
+    header { background: #185FA5; color: white; padding: 20px 20px 16px; }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header p { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+    .container { max-width: 480px; margin: 0 auto; padding: 20px 16px 40px; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    .card-title { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 16px; }
+    .field { margin-bottom: 16px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label { display: block; font-size: 14px; color: #444; margin-bottom: 6px; }
+    .field input[type="number"] { width: 100%; padding: 10px 12px; border: 1px solid #dde1e7; border-radius: 8px; font-size: 16px; color: #1a1a1a; background: #fafafa; outline: none; transition: border 0.2s; }
+    .field input[type="number"]:focus { border-color: #185FA5; background: white; }
+    .field .unit { font-size: 12px; color: #aaa; margin-top: 4px; }
+    .slider-row { display: flex; align-items: center; gap: 10px; }
+    .slider-row input[type="range"] { flex: 1; accent-color: #185FA5; height: 4px; }
+    .slider-row input[type="number"] { width: 72px; padding: 8px 10px; border: 1px solid #dde1e7; border-radius: 8px; font-size: 15px; text-align: center; outline: none; }
+    .slider-row input[type="number"]:focus { border-color: #185FA5; }
+    .slider-row .pct { font-size: 14px; color: #666; }
+    .results { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .metric { background: #f4f6f9; border-radius: 10px; padding: 14px; }
+    .metric.full { grid-column: 1 / -1; }
+    .metric.blue { background: #e6f1fb; }
+    .metric .mlabel { font-size: 11px; color: #888; margin-bottom: 4px; }
+    .metric.blue .mlabel { color: #185FA5; }
+    .metric .mval { font-size: 20px; font-weight: 600; color: #1a1a1a; }
+    .metric.blue .mval { color: #185FA5; }
+    .metric .msub { font-size: 11px; color: #bbb; margin-top: 2px; }
+    footer { text-align: center; font-size: 12px; color: #bbb; margin-top: 24px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Calculadora de comisiones DDV</h1>
+  <p>Estima cuánto ganarías vendiendo con 4G Energía</p>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <div class="card-title">Datos del cliente</div>
+    <div class="field">
+      <label>Consumo del cliente</label>
+      <input type="number" id="consumo" min="0" step="1" value="500" oninput="calc()">
+      <div class="unit">kWh / día</div>
+    </div>
+    <div class="field">
+      <label>Días de respaldo DDV en el mes</label>
+      <input type="number" id="dias" min="1" max="31" step="1" value="20" oninput="calc()">
+      <div class="unit">días / mes</div>
+    </div>
+    <div class="field">
+      <label>Precio de venta al cliente</label>
+      <div style="padding: 10px 12px; border: 1px solid #dde1e7; border-radius: 8px; background: #f4f6f9; font-size: 16px; color: #888;">$ 15 COP / kWh <span style="font-size:12px;">(fijo)</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Parámetros 4G Energía</div>
+    <div class="field">
+      <label>% de ingreso bruto 4G Energía sobre la venta</label>
+      <div class="slider-row">
+        <input type="range" id="pct4g_range" min="1" max="50" step="0.5" value="15" oninput="syncPct('range')">
+        <input type="number" id="pct4g_num" min="1" max="100" step="0.5" value="15" oninput="syncPct('num')">
+        <span class="pct">%</span>
+      </div>
+      <div class="unit">Porcentaje del precio de venta que corresponde a 4G Energía</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Resultado</div>
+    <div class="results">
+      <div class="metric">
+        <div class="mlabel">Energía suministrada</div>
+        <div class="mval" id="res_kwh">—</div>
+        <div class="msub">kWh / mes</div>
+      </div>
+      <div class="metric">
+        <div class="mlabel">Facturación al cliente</div>
+        <div class="mval" id="res_factura">—</div>
+        <div class="msub">$ COP / mes</div>
+      </div>
+      <div class="metric">
+        <div class="mlabel">Ingreso bruto 4G Energía</div>
+        <div class="mval" id="res_bruto">—</div>
+        <div class="msub">$ COP / mes</div>
+      </div>
+      <div class="metric blue">
+        <div class="mlabel">Tu comisión mensual</div>
+        <div class="mval" id="res_mes">—</div>
+        <div class="msub">20% fijo sobre ingreso 4G</div>
+      </div>
+      <div class="metric full blue">
+        <div class="mlabel">Tu comisión anual proyectada</div>
+        <div class="mval" id="res_anual">—</div>
+        <div class="msub">$ COP / año</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>4G Energía S.A. · Barranquilla, Colombia</footer>
+</div>
+
+<script>
+function fmt(n) {
+  return Math.round(n).toLocaleString('es-CO');
+}
+function syncPct(from) {
+  var r = document.getElementById('pct4g_range');
+  var n = document.getElementById('pct4g_num');
+  if (from === 'range') { n.value = r.value; }
+  else { r.value = Math.min(50, Math.max(1, parseFloat(n.value) || 1)); }
+  calc();
+}
+function calc() {
+  var consumo = parseFloat(document.getElementById('consumo').value) || 0;
+  var dias = parseFloat(document.getElementById('dias').value) || 0;
+  var precio = 15;
+  var pct4g = parseFloat(document.getElementById('pct4g_num').value) || 0;
+
+  var kwh_mes = consumo * dias;
+  var factura = kwh_mes * precio;
+  var bruto4g = factura * (pct4g / 100);
+  var comision_mes = bruto4g * 0.20;
+  var comision_anual = comision_mes * 12;
+
+  document.getElementById('res_kwh').textContent = fmt(kwh_mes) + ' kWh';
+  document.getElementById('res_factura').textContent = '$ ' + fmt(factura);
+  document.getElementById('res_bruto').textContent = '$ ' + fmt(bruto4g);
+  document.getElementById('res_mes').textContent = '$ ' + fmt(comision_mes);
+  document.getElementById('res_anual').textContent = '$ ' + fmt(comision_anual);
+}
+calc();
+</script>
+
+
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+</body>
+</html>
